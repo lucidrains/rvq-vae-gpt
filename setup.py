@@ -1,15 +1,15 @@
 from setuptools import setup, find_packages
 
 setup(
-  name = 'FLASH-pytorch',
+  name = 'rvq-vae-gpt',
   packages = find_packages(exclude=[]),
   version = '0.0.1',
   license='MIT',
-  description = 'FLASH - Transformer Quality in Linear Time - Pytorch',
+  description = 'Yet another attempt at GPT in quantized latent space',
   author = 'Phil Wang',
   author_email = 'lucidrains@gmail.com',
   long_description_content_type = 'text/markdown',
-  url = 'https://github.com/lucidrains/ETSformer-pytorch',
+  url = 'https://github.com/lucidrains/rvq-vae-gpt',
   keywords = [
     'artificial intelligence',
     'deep learning',
@@ -18,7 +18,9 @@ setup(
   ],
   install_requires=[
     'einops>=0.4',
+    'local-attention',
     'torch>=1.6',
+    'vector-quantize-pytorch'
   ],
   classifiers=[
     'Development Status :: 4 - Beta',
