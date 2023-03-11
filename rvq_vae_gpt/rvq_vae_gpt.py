@@ -191,6 +191,29 @@ class TextVQVAE(nn.Module): # or genomics, eventually, with num_tokens set to 4
     def device(self):
         return next(self.parameters()).device
 
+    def encode(self, ids):
+        tokens = self.token_emb(ids)
+
+        for downsample, local_attn in self.encoder:
+            tokens = downsample(tokens)
+            tokens = local_attn(tokens)
+        return tokens
+
+    def decode(self, codes):
+        tokens = codes
+
+        for upsample, local_attn in self.decoder:
+            tokens = upsample(tokens)
+            tokens = local_attn(tokens)
+
+        logits = self.to_logits(tokens)
+        return logits
+
+    @torch.no_grad()
+    def decode_from_codebook_ids(self, codebook_ids):
+        codes = self.vq.get_codes_from_indices(codebook_ids)
+        return self.decode(codes)
+
     def forward(
         self,
         ids,
@@ -201,22 +224,14 @@ class TextVQVAE(nn.Module): # or genomics, eventually, with num_tokens set to 4
 
         ids = ids.to(self.device)
 
-        tokens = self.token_emb(ids)
-
-        for downsample, local_attn in self.encoder:
-            tokens = downsample(tokens)
-            tokens = local_attn(tokens)
+        tokens = self.encode(ids)
 
         tokens, indices, commit_loss = self.vq(tokens)
 
         if return_codebook_indices:
             return indices
 
-        for upsample, local_attn in self.decoder:
-            tokens = upsample(tokens)
-            tokens = local_attn(tokens)
-
-        logits = self.to_logits(tokens)
+        logits = self.decode(tokens)
 
         logits = rearrange(logits, 'b n c -> b c n')
 

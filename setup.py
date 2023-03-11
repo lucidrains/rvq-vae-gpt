@@ -21,7 +21,7 @@ setup(
     'einops>=0.4',
     'local-attention',
     'torch>=1.6',
-    'vector-quantize-pytorch'
+    'vector-quantize-pytorch>=1.1.2'
   ],
   classifiers=[
     'Development Status :: 4 - Beta',
