@@ -3,6 +3,7 @@ import torch.nn.functional as F
 from torch import nn, einsum
 
 from einops import rearrange, repeat, pack, unpack
+from einops.layers.torch import Rearrange
 
 from local_attention import LocalMHA
 from vector_quantize_pytorch import VectorQuantize
@@ -14,6 +15,12 @@ from beartype.typing import Tuple
 
 def exists(val):
     return val is not None
+
+def default(*vals):
+    for val in vals:
+        if exists(val):
+            return val
+    return None
 
 def divisible_by(numer, denom):
     return (numer % denom) == 0
@@ -32,6 +39,53 @@ def FeedForward(dim, mult = 4):
         nn.Linear(dim, dim_inner * 2),
         GEGLU(),
         nn.Linear(dim_inner, dim)
+    )
+
+# the best kind of down and upsampling
+
+class Upsample(nn.Module):
+    def __init__(
+        self,
+        dim,
+        dim_out = None,
+        factor = 2
+    ):
+        super().__init__()
+        dim_out = default(dim_out, dim)
+        linear = nn.Linear(dim, dim_out * factor)
+
+        self.net = nn.Sequential(
+            linear,
+            nn.SiLU(),
+            Rearrange('b n (p d) -> b (n p) d', p = factor)
+        )
+
+        self.factor = factor
+        self.init_(linear)
+
+    def init_(self, linear):
+        o, i = linear.weight.shape
+
+        linear_weight = torch.empty(o // self.factor, i)
+        nn.init.kaiming_uniform_(linear_weight)
+
+        linear_weight = repeat(linear_weight, 'o ... -> (o r) ...', r = self.factor)
+
+        linear_weight.data.copy_(linear_weight)
+        nn.init.zeros_(linear.bias.data)
+
+    def forward(self, x):
+        return self.net(x)
+
+def Downsample(
+    dim,
+    dim_out = None,
+    factor = 2
+):
+    dim_out = default(dim_out, dim)
+    return nn.Sequential(
+        Rearrange('b (n p) d -> b n (p d)', p = factor),
+        nn.Linear(dim * factor, dim_out)
     )
 
 # local attention
@@ -96,14 +150,17 @@ class TextVQVAE(nn.Module): # or genomics, eventually, with num_tokens set to 4
 
         self.encoder = nn.ModuleList([])
 
-        for _ in strides:
-            self.encoder.append(LocalTransformer(
-                dim = dim,
-                depth = depth,
-                heads = local_attn_heads,
-                dim_head = local_attn_dim_head,
-                window_size = local_attn_window_size
-            ))
+        for stride in strides:
+            self.encoder.append(nn.ModuleList([
+                Downsample(dim = dim, factor = stride),
+                LocalTransformer(
+                    dim = dim,
+                    depth = depth,
+                    heads = local_attn_heads,
+                    dim_head = local_attn_dim_head,
+                    window_size = local_attn_window_size
+                )
+            ]))
 
         self.vq = VectorQuantize(
             dim = dim,
@@ -113,14 +170,17 @@ class TextVQVAE(nn.Module): # or genomics, eventually, with num_tokens set to 4
 
         self.decoder = nn.ModuleList([])
 
-        for _ in strides:
-            self.decoder.append(LocalTransformer(
-                dim = dim,
-                depth = depth,
-                heads = local_attn_heads,
-                dim_head = local_attn_dim_head,
-                window_size = local_attn_window_size
-            ))
+        for stride in strides:
+            self.decoder.append(nn.ModuleList([
+                Upsample(dim = dim, factor = stride),
+                LocalTransformer(
+                    dim = dim,
+                    depth = depth,
+                    heads = local_attn_heads,
+                    dim_head = local_attn_dim_head,
+                    window_size = local_attn_window_size
+                )
+            ]))
 
         self.to_logits = nn.Sequential(
             nn.LayerNorm(dim),
@@ -143,7 +203,8 @@ class TextVQVAE(nn.Module): # or genomics, eventually, with num_tokens set to 4
 
         tokens = self.token_emb(ids)
 
-        for local_attn in self.encoder:
+        for downsample, local_attn in self.encoder:
+            tokens = downsample(tokens)
             tokens = local_attn(tokens)
 
         tokens, indices, commit_loss = self.vq(tokens)
@@ -151,7 +212,8 @@ class TextVQVAE(nn.Module): # or genomics, eventually, with num_tokens set to 4
         if return_codebook_indices:
             return indices
 
-        for local_attn in self.encoder:
+        for upsample, local_attn in self.decoder:
+            tokens = upsample(tokens)
             tokens = local_attn(tokens)
 
         logits = self.to_logits(tokens)
