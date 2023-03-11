@@ -17,6 +17,7 @@ setup(
     'attention mechanism'
   ],
   install_requires=[
+    'beartype',
     'einops>=0.4',
     'local-attention',
     'torch>=1.6',
