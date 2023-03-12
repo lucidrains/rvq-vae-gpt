@@ -28,6 +28,9 @@ def default(*vals):
 def divisible_by(numer, denom):
     return (numer % denom) == 0
 
+def cast_tuple(t, len = 1):
+    return ((t,) * len) if not isinstance(t, tuple) else t
+
 # feedforward
 
 class GEGLU(nn.Module):
@@ -153,21 +156,34 @@ class TextVQVAE(nn.Module): # or genomics, eventually, with num_tokens set to 4
         config.pop('__class__')
         self._config = config
 
+        num_layers = len(strides)
+
+        depth = cast_tuple(depth, num_layers)
+        local_attn_window_size = cast_tuple(local_attn_window_size, num_layers)
+
+        assert num_layers == len(depth) == len(local_attn_window_size)
+
         self.token_emb = nn.Embedding(num_tokens, dim)
 
         self.total_strides = torch.tensor(list(strides)).cumsum(dim = -1).item()
 
         self.encoder = nn.ModuleList([])
 
-        for stride in strides:
+        layer_params = tuple(zip(
+            strides,
+            depth,
+            local_attn_window_size
+        ))
+
+        for layer_stride, layer_depth, layer_local_attn_window_size in layer_params:
             self.encoder.append(nn.ModuleList([
-                Downsample(dim = dim, factor = stride),
+                Downsample(dim = dim, factor = layer_stride),
                 LocalTransformer(
                     dim = dim,
-                    depth = depth,
+                    depth = layer_depth,
                     heads = local_attn_heads,
                     dim_head = local_attn_dim_head,
-                    window_size = local_attn_window_size
+                    window_size = layer_local_attn_window_size
                 )
             ]))
 
@@ -179,15 +195,15 @@ class TextVQVAE(nn.Module): # or genomics, eventually, with num_tokens set to 4
 
         self.decoder = nn.ModuleList([])
 
-        for stride in strides:
+        for layer_stride, layer_depth, layer_local_attn_window_size in reversed(layer_params):
             self.decoder.append(nn.ModuleList([
-                Upsample(dim = dim, factor = stride),
+                Upsample(dim = dim, factor = layer_stride),
                 LocalTransformer(
                     dim = dim,
-                    depth = depth,
+                    depth = layer_depth,
                     heads = local_attn_heads,
                     dim_head = local_attn_dim_head,
-                    window_size = local_attn_window_size
+                    window_size = layer_local_attn_window_size
                 )
             ]))
 
