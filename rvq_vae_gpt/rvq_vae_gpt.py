@@ -11,6 +11,9 @@ from vector_quantize_pytorch import VectorQuantize
 from beartype import beartype
 from beartype.typing import Tuple
 
+from pathlib import Path
+import pickle
+
 # helpers
 
 def exists(val):
@@ -144,6 +147,12 @@ class TextVQVAE(nn.Module): # or genomics, eventually, with num_tokens set to 4
         num_codebooks = 4
     ):
         super().__init__()
+
+        config = locals()
+        config.pop('self')
+        config.pop('__class__')
+        self._config = config
+
         self.token_emb = nn.Embedding(num_tokens, dim)
 
         self.total_strides = torch.tensor(list(strides)).cumsum(dim = -1).item()
@@ -186,6 +195,29 @@ class TextVQVAE(nn.Module): # or genomics, eventually, with num_tokens set to 4
             nn.LayerNorm(dim),
             nn.Linear(dim, num_tokens)
         )
+
+    def save(self, path):
+        path = Path(path)
+        pkg = dict(
+            model = self.state_dict(),
+            config = pickle.dumps(self._config)
+        )
+        torch.save(pkg, str(path))
+
+    def load(self, path):
+        path = Path(path)
+        assert path.exists()
+        pkg = torch.load(str(path))
+        self.load_state_dict(pkg['model'])
+
+    @classmethod
+    def init_and_load(cls, path):
+        path = Path(path)
+        assert path.exists()
+        pkg = torch.load(str(path))
+        model = cls(**pickle.loads(pkg['config']))
+        model.load(path)
+        return model
 
     @property
     def device(self):
