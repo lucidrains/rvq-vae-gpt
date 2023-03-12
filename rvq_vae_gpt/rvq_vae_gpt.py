@@ -156,6 +156,8 @@ class TextVQVAE(nn.Module): # or genomics, eventually, with num_tokens set to 4
         config.pop('__class__')
         self._config = config
 
+        assert divisible_by(dim, num_codebooks)
+
         num_layers = len(strides)
 
         depth = cast_tuple(depth, num_layers)
