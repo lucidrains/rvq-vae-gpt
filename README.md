@@ -6,6 +6,10 @@ The Soundstream will be modified to use all local attention. Experiments will co
 
 Was told by a researcher friend this will likely fail 😂😂 but I will try it anyways, yolo. In the case it does not work, maybe it can still be useful for genomics. Come to think of it, why shouldn't it be able to at least learn bigrams (for english) and codons (for genomics)?
 
+## Todo
+
+- [ ] add a diff in the autoencoder training between input and reconstructed, so one can examine the failure cases easily
+
 ## Citations
 
 ```bibtex
