@@ -45,7 +45,9 @@ model = TextVQVAE(
     num_tokens = 256,    
     dim = 512,
     depth = 6,
-    strides = (2,)
+    local_attn_window_size = 64,
+    num_codebooks = 4,
+    strides = (4,)
 ).cuda()
 
 # prepare enwik8 data

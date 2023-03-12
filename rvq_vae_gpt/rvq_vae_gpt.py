@@ -19,6 +19,9 @@ import pickle
 def exists(val):
     return val is not None
 
+def first(it):
+    return it[0]
+
 def default(*vals):
     for val in vals:
         if exists(val):
@@ -178,6 +181,22 @@ class TextVQVAE(nn.Module): # or genomics, eventually, with num_tokens set to 4
             local_attn_window_size
         ))
 
+        self.init_transformer = LocalTransformer(
+            dim = dim,
+            depth = first(depth),
+            heads = local_attn_heads,
+            dim_head = local_attn_dim_head,
+            window_size = first(local_attn_window_size)
+        )
+
+        self.final_transformer = LocalTransformer(
+            dim = dim,
+            depth = first(depth),
+            heads = local_attn_heads,
+            dim_head = local_attn_dim_head,
+            window_size = first(local_attn_window_size)
+        )
+
         for layer_stride, layer_depth, layer_local_attn_window_size in layer_params:
             self.encoder.append(nn.ModuleList([
                 Downsample(dim = dim, factor = layer_stride),
@@ -245,6 +264,8 @@ class TextVQVAE(nn.Module): # or genomics, eventually, with num_tokens set to 4
     def encode(self, ids):
         tokens = self.token_emb(ids)
 
+        tokens = self.final_transformer(tokens)
+
         for downsample, local_attn in self.encoder:
             tokens = downsample(tokens)
             tokens = local_attn(tokens)
@@ -254,8 +275,10 @@ class TextVQVAE(nn.Module): # or genomics, eventually, with num_tokens set to 4
         tokens = codes
 
         for upsample, local_attn in self.decoder:
-            tokens = upsample(tokens)
             tokens = local_attn(tokens)
+            tokens = upsample(tokens)
+
+        tokens = self.final_transformer(tokens)
 
         logits = self.to_logits(tokens)
         return logits
