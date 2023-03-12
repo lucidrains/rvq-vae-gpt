@@ -9,7 +9,7 @@ from local_attention import LocalMHA
 from vector_quantize_pytorch import VectorQuantize
 
 from beartype import beartype
-from beartype.typing import Tuple
+from beartype.typing import Tuple, Optional, Union
 
 from pathlib import Path
 import pickle
@@ -142,7 +142,7 @@ class TextVQVAE(nn.Module): # or genomics, eventually, with num_tokens set to 4
         num_tokens,
         dim,
         depth,
-        strides: Tuple[int],
+        strides: Union[int, Tuple[int]],
         codebook_size = 1024,
         local_attn_window_size = 32,
         local_attn_heads = 8,
@@ -158,6 +158,7 @@ class TextVQVAE(nn.Module): # or genomics, eventually, with num_tokens set to 4
 
         assert divisible_by(dim, num_codebooks)
 
+        strides = cast_tuple(strides)
         num_layers = len(strides)
 
         depth = cast_tuple(depth, num_layers)
@@ -267,7 +268,8 @@ class TextVQVAE(nn.Module): # or genomics, eventually, with num_tokens set to 4
     def forward(
         self,
         ids,
-        return_codebook_indices = False
+        return_codebook_indices = False,
+        return_reconstruction = False
     ):
         batch, seq = ids.shape
         assert divisible_by(seq, self.total_strides)
@@ -290,7 +292,12 @@ class TextVQVAE(nn.Module): # or genomics, eventually, with num_tokens set to 4
             ids
         )
 
-        return loss + commit_loss
+        loss =  loss + commit_loss
+
+        if return_reconstruction:
+            return loss, logits.argmax(dim = 1)
+
+        return loss
 
 # hierarchical transformer
 
