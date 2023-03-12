@@ -19,7 +19,7 @@ setup(
   install_requires=[
     'beartype',
     'einops>=0.4',
-    'local-attention',
+    'local-attention>=1.0.0',
     'torch>=1.6',
     'vector-quantize-pytorch>=1.1.2'
   ],

@@ -145,12 +145,13 @@ class TextVQVAE(nn.Module): # or genomics, eventually, with num_tokens set to 4
         num_tokens,
         dim,
         depth,
-        strides: Union[int, Tuple[int]],
+        strides: Union[int, Tuple[int, ...]],
         codebook_size = 1024,
         local_attn_window_size = 32,
         local_attn_heads = 8,
         local_attn_dim_head = 64,
-        num_codebooks = 4
+        num_codebooks = 4,
+        vq_decay = 0.9
     ):
         super().__init__()
 
@@ -159,6 +160,7 @@ class TextVQVAE(nn.Module): # or genomics, eventually, with num_tokens set to 4
         config.pop('__class__')
         self._config = config
 
+        assert 0 < vq_decay <= 1.
         assert divisible_by(dim, num_codebooks)
 
         strides = cast_tuple(strides)
@@ -171,7 +173,7 @@ class TextVQVAE(nn.Module): # or genomics, eventually, with num_tokens set to 4
 
         self.token_emb = nn.Embedding(num_tokens, dim)
 
-        self.total_strides = torch.tensor(list(strides)).cumsum(dim = -1).item()
+        self.total_strides = torch.tensor(list(strides)).cumprod(dim = -1)[-1].item()
 
         self.encoder = nn.ModuleList([])
 
@@ -212,7 +214,9 @@ class TextVQVAE(nn.Module): # or genomics, eventually, with num_tokens set to 4
         self.vq = VectorQuantize(
             dim = dim,
             codebook_size = codebook_size,
-            heads = num_codebooks  # use multi-headed vq, product quantization like
+            heads = num_codebooks,  # use multi-headed vq, product quantization like
+            decay = vq_decay,
+            commitment_weight = 1.   # the weight on the commitment loss
         )
 
         self.decoder = nn.ModuleList([])

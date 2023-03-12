@@ -44,10 +44,10 @@ def decode_tokens(tokens):
 model = TextVQVAE(
     num_tokens = 256,    
     dim = 512,
-    depth = 6,
+    depth = 2,
     local_attn_window_size = 64,
     num_codebooks = 4,
-    strides = (4,)
+    strides = (2, 2, 2)
 ).cuda()
 
 # prepare enwik8 data
