@@ -4,7 +4,7 @@ My attempts at applying <a href="https://github.com/lucidrains/audiolm-pytorch/b
 
 The Soundstream will be modified to use all local attention. Experiments will compare VQ, RVQ, and also multi-headed VQ
 
-Was told by a researcher friend this will likely fail 😂😂 but I will try it anyways, yolo. In the case it does not work, maybe it can still be useful for genomics.
+Was told by a researcher friend this will likely fail 😂😂 but I will try it anyways, yolo. In the case it does not work, maybe it can still be useful for genomics. Come to think of it, why shouldn't it be able to at least learn bigrams (for english) and codons (for genomics)?
 
 ## Citations
 

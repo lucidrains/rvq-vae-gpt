@@ -107,7 +107,7 @@ for i in tqdm.tqdm(range(NUM_BATCHES), mininterval = 10.0, desc = "training"):
             print(f"validation loss: {loss.item()}")
 
             print(f"\n\n\n[input text]\n\n {decode_tokens(first(valid_text))}")
-            print(f"\n\n\n[reconstructed text]\n\n {decode_tokens(first(recon))}")
+            print(f"\n\n[reconstructed text]\n\n {decode_tokens(first(recon))}\n\n")
 
     if i % SAVE_EVERY == 0:
         model.save('./text-vae.pt')
