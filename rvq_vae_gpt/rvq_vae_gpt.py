@@ -211,6 +211,8 @@ class TextVQVAE(nn.Module): # or genomics, eventually, with num_tokens set to 4
                 )
             ]))
 
+        self.post_encode_norm = nn.LayerNorm(dim)
+
         self.vq = ResidualVQ(
             dim = dim,
             num_quantizers = num_codebooks,
@@ -274,7 +276,8 @@ class TextVQVAE(nn.Module): # or genomics, eventually, with num_tokens set to 4
         for downsample, local_attn in self.encoder:
             tokens = downsample(tokens)
             tokens = local_attn(tokens)
-        return tokens
+
+        return self.post_encode_norm(tokens)
 
     def decode(self, codes):
         tokens = codes
