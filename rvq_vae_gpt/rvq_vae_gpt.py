@@ -34,6 +34,13 @@ def divisible_by(numer, denom):
 def cast_tuple(t, len = 1):
     return ((t,) * len) if not isinstance(t, tuple) else t
 
+# token shift - used by RWKV, Peng et al
+
+def shift_tokens(t):
+    t, t_shift = t.chunk(2, dim = -1)
+    t_shift = F.pad(t_shift, (0, 0, 1, -1), value = 0.)
+    return torch.cat((t, t_shift), dim = -1)
+
 # feedforward
 
 class GEGLU(nn.Module):
@@ -45,6 +52,7 @@ def FeedForward(dim, mult = 4):
     dim_inner = int(dim * mult * 2 / 3)
 
     return nn.Sequential(
+        nn.LayerNorm(dim),
         nn.Linear(dim, dim_inner * 2),
         GEGLU(),
         nn.Linear(dim_inner, dim)
@@ -130,8 +138,8 @@ class LocalTransformer(nn.Module):
     def forward(self, x):
 
         for attn, ff in self.layers:
-            x = attn(x) + x
-            x = ff(x) + x
+            x = attn(shift_tokens(x)) + x
+            x = ff(shift_tokens(x)) + x
 
         return x
 
@@ -211,15 +219,17 @@ class TextVQVAE(nn.Module): # or genomics, eventually, with num_tokens set to 4
                 )
             ]))
 
-        self.post_encode_norm = nn.LayerNorm(dim)
+        self.encoder_norm = nn.LayerNorm(dim)
 
         self.vq = ResidualVQ(
             dim = dim,
             num_quantizers = num_codebooks,
             codebook_size = codebook_size,
             decay = vq_decay,
-            quantize_dropout = rvq_quantize_dropout,
-            commitment_weight = 1.   # the weight on the commitment loss
+            quantize_dropout = num_codebooks > 1 and rvq_quantize_dropout,
+            commitment_weight = 0.,   # the weight on the commitment loss
+            kmeans_init = True,
+            kmeans_iters = 10
         )
 
         self.decoder = nn.ModuleList([])
@@ -271,13 +281,13 @@ class TextVQVAE(nn.Module): # or genomics, eventually, with num_tokens set to 4
     def encode(self, ids):
         tokens = self.token_emb(ids)
 
-        tokens = self.final_transformer(tokens)
+        tokens = self.init_transformer(tokens)
 
         for downsample, local_attn in self.encoder:
             tokens = downsample(tokens)
             tokens = local_attn(tokens)
 
-        return self.post_encode_norm(tokens)
+        return self.encoder_norm(tokens)
 
     def decode(self, codes):
         tokens = codes
@@ -310,7 +320,7 @@ class TextVQVAE(nn.Module): # or genomics, eventually, with num_tokens set to 4
 
         tokens = self.encode(ids)
 
-        tokens, indices, commit_loss = self.vq(tokens)
+        tokens, indices, _ = self.vq(tokens)
 
         if return_codebook_indices:
             return indices
@@ -319,19 +329,13 @@ class TextVQVAE(nn.Module): # or genomics, eventually, with num_tokens set to 4
 
         logits = rearrange(logits, 'b n c -> b c n')
 
-        ce_loss = F.cross_entropy(
+        loss = F.cross_entropy(
             logits,
             ids
         )
 
-        commit_loss = commit_loss.sum()
-        loss =  ce_loss + commit_loss
-
         if return_reconstruction:
-            return loss, logits.argmax(dim = 1), (ce_loss, commit_loss)
-
-        if return_loss_breakdown:
-            return loss, (ce_loss, commit_loss)
+            return loss, logits.argmax(dim = 1)
 
         return loss
 
