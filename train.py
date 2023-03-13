@@ -40,8 +40,8 @@ def decode_tokens(tokens):
 
 model = TextVQVAE(
     num_tokens = 256,    
-    dim = 512,
-    depth = 2,
+    dim = (128, 256, 512),
+    depth = (2, 2, 4),
     local_attn_window_size = 64,
     num_codebooks = 8,
     strides = (2, 2, 2)

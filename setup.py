@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 setup(
   name = 'rvq-vae-gpt',
   packages = find_packages(exclude=[]),
-  version = '0.0.2',
+  version = '0.0.3',
   license='MIT',
   description = 'Yet another attempt at GPT in quantized latent space',
   author = 'Phil Wang',

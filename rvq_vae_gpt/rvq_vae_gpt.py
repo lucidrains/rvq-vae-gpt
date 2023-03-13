@@ -151,8 +151,8 @@ class TextVQVAE(nn.Module): # or genomics, eventually, with num_tokens set to 4
         self,
         *,
         num_tokens,
-        dim,
-        depth,
+        dim: Union[int, Tuple[int, ...]],
+        depth: Union[int, Tuple[int, ...]],
         strides: Union[int, Tuple[int, ...]],
         codebook_size = 1024,
         local_attn_window_size = 32,
@@ -174,12 +174,18 @@ class TextVQVAE(nn.Module): # or genomics, eventually, with num_tokens set to 4
         strides = cast_tuple(strides)
         num_layers = len(strides)
 
+        dim = cast_tuple(dim, num_layers)
         depth = cast_tuple(depth, num_layers)
         local_attn_window_size = cast_tuple(local_attn_window_size, num_layers)
 
-        assert num_layers == len(depth) == len(local_attn_window_size)
+        assert num_layers == len(depth) == len(local_attn_window_size) == len(dim)
 
-        self.token_emb = nn.Embedding(num_tokens, dim)
+        init_dim, *_, vq_dim = dim
+
+        dims = [first(dim), *dim]
+        dim_pairs = tuple(zip(dims[:-1], dims[1:]))
+
+        self.token_emb = nn.Embedding(num_tokens, init_dim)
 
         self.total_strides = torch.tensor(list(strides)).cumprod(dim = -1)[-1].item()
 
@@ -188,11 +194,12 @@ class TextVQVAE(nn.Module): # or genomics, eventually, with num_tokens set to 4
         layer_params = tuple(zip(
             strides,
             depth,
-            local_attn_window_size
+            local_attn_window_size,
+            dim_pairs
         ))
 
         self.init_transformer = LocalTransformer(
-            dim = dim,
+            dim = init_dim,
             depth = first(depth),
             heads = local_attn_heads,
             dim_head = local_attn_dim_head,
@@ -200,18 +207,18 @@ class TextVQVAE(nn.Module): # or genomics, eventually, with num_tokens set to 4
         )
 
         self.final_transformer = LocalTransformer(
-            dim = dim,
+            dim = init_dim,
             depth = first(depth),
             heads = local_attn_heads,
             dim_head = local_attn_dim_head,
             window_size = first(local_attn_window_size)
         )
 
-        for layer_stride, layer_depth, layer_local_attn_window_size in layer_params:
+        for layer_stride, layer_depth, layer_local_attn_window_size, (dim_in, dim_out) in layer_params:
             self.encoder.append(nn.ModuleList([
-                Downsample(dim = dim, factor = layer_stride),
+                Downsample(dim = dim_in, dim_out = dim_out, factor = layer_stride),
                 LocalTransformer(
-                    dim = dim,
+                    dim = dim_out,
                     depth = layer_depth,
                     heads = local_attn_heads,
                     dim_head = local_attn_dim_head,
@@ -219,10 +226,11 @@ class TextVQVAE(nn.Module): # or genomics, eventually, with num_tokens set to 4
                 )
             ]))
 
-        self.encoder_norm = nn.LayerNorm(dim)
+
+        self.encoder_norm = nn.LayerNorm(vq_dim)
 
         self.vq = ResidualVQ(
-            dim = dim,
+            dim = vq_dim,
             num_quantizers = num_codebooks,
             codebook_size = codebook_size,
             decay = vq_decay,
@@ -234,11 +242,11 @@ class TextVQVAE(nn.Module): # or genomics, eventually, with num_tokens set to 4
 
         self.decoder = nn.ModuleList([])
 
-        for layer_stride, layer_depth, layer_local_attn_window_size in reversed(layer_params):
+        for layer_stride, layer_depth, layer_local_attn_window_size, (dim_in, dim_out) in reversed(layer_params):
             self.decoder.append(nn.ModuleList([
-                Upsample(dim = dim, factor = layer_stride),
+                Upsample(dim = dim_out, dim_out = dim_in, factor = layer_stride),
                 LocalTransformer(
-                    dim = dim,
+                    dim = dim_out,
                     depth = layer_depth,
                     heads = local_attn_heads,
                     dim_head = local_attn_dim_head,
@@ -247,8 +255,8 @@ class TextVQVAE(nn.Module): # or genomics, eventually, with num_tokens set to 4
             ]))
 
         self.to_logits = nn.Sequential(
-            nn.LayerNorm(dim),
-            nn.Linear(dim, num_tokens)
+            nn.LayerNorm(init_dim),
+            nn.Linear(init_dim, num_tokens)
         )
 
     def save(self, path):
