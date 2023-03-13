@@ -151,7 +151,8 @@ class TextVQVAE(nn.Module): # or genomics, eventually, with num_tokens set to 4
         local_attn_heads = 8,
         local_attn_dim_head = 64,
         num_codebooks = 4,
-        vq_decay = 0.9
+        vq_decay = 0.9,
+        rvq_quantize_dropout = True
     ):
         super().__init__()
 
@@ -215,6 +216,7 @@ class TextVQVAE(nn.Module): # or genomics, eventually, with num_tokens set to 4
             num_quantizers = num_codebooks,
             codebook_size = codebook_size,
             decay = vq_decay,
+            quantize_dropout = rvq_quantize_dropout,
             commitment_weight = 1.   # the weight on the commitment loss
         )
 
@@ -295,7 +297,8 @@ class TextVQVAE(nn.Module): # or genomics, eventually, with num_tokens set to 4
         self,
         ids,
         return_codebook_indices = False,
-        return_reconstruction = False
+        return_reconstruction = False,
+        return_loss_breakdown = False
     ):
         batch, seq = ids.shape
         assert divisible_by(seq, self.total_strides)
@@ -313,15 +316,19 @@ class TextVQVAE(nn.Module): # or genomics, eventually, with num_tokens set to 4
 
         logits = rearrange(logits, 'b n c -> b c n')
 
-        loss = F.cross_entropy(
+        ce_loss = F.cross_entropy(
             logits,
             ids
         )
 
-        loss =  loss + commit_loss.sum()
+        commit_loss = commit_loss.sum()
+        loss =  ce_loss + commit_loss
 
         if return_reconstruction:
-            return loss, logits.argmax(dim = 1)
+            return loss, logits.argmax(dim = 1), (ce_loss, commit_loss)
+
+        if return_loss_breakdown:
+            return loss, (ce_loss, commit_loss)
 
         return loss
 
