@@ -6,7 +6,7 @@ from einops import rearrange, repeat, pack, unpack
 from einops.layers.torch import Rearrange
 
 from local_attention import LocalMHA
-from vector_quantize_pytorch import VectorQuantize
+from vector_quantize_pytorch import VectorQuantize, ResidualVQ
 
 from beartype import beartype
 from beartype.typing import Tuple, Optional, Union
@@ -161,7 +161,6 @@ class TextVQVAE(nn.Module): # or genomics, eventually, with num_tokens set to 4
         self._config = config
 
         assert 0 < vq_decay <= 1.
-        assert divisible_by(dim, num_codebooks)
 
         strides = cast_tuple(strides)
         num_layers = len(strides)
@@ -211,10 +210,10 @@ class TextVQVAE(nn.Module): # or genomics, eventually, with num_tokens set to 4
                 )
             ]))
 
-        self.vq = VectorQuantize(
+        self.vq = ResidualVQ(
             dim = dim,
+            num_quantizers = num_codebooks,
             codebook_size = codebook_size,
-            heads = num_codebooks,  # use multi-headed vq, product quantization like
             decay = vq_decay,
             commitment_weight = 1.   # the weight on the commitment loss
         )
@@ -319,7 +318,7 @@ class TextVQVAE(nn.Module): # or genomics, eventually, with num_tokens set to 4
             ids
         )
 
-        loss =  loss + commit_loss
+        loss =  loss + commit_loss.sum()
 
         if return_reconstruction:
             return loss, logits.argmax(dim = 1)

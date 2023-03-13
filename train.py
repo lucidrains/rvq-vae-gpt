@@ -43,7 +43,7 @@ model = TextVQVAE(
     dim = 512,
     depth = 2,
     local_attn_window_size = 64,
-    num_codebooks = 4,
+    num_codebooks = 8,
     strides = (2, 2, 2)
 ).cuda()
 
