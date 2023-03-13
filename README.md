@@ -6,6 +6,8 @@ The Soundstream will be modified to use all local attention. Experiments will co
 
 Was told by a researcher friend this will likely fail 😂😂 but I will try it anyways, yolo. In the case it does not work, maybe it can still be useful for genomics. Come to think of it, why shouldn't it be able to at least learn bigrams (for english) and codons (for genomics)? Why don't we have <a href="https://www.nature.com/articles/s41562-022-01516-2">hierarchical predictive coding</a>? We should
 
+Update: <a href="https://api.wandb.ai/links/lucidrains/kpdfhad9">Some live experiments</a>
+
 ## Todo
 
 - [ ] add a diff in the autoencoder training between input and reconstructed, so one can examine the failure cases easily
