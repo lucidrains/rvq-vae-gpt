@@ -83,10 +83,10 @@ for i in tqdm.tqdm(range(NUM_BATCHES), mininterval = 10.0, desc = "training"):
     model.train()
 
     for _ in range(GRADIENT_ACCUMULATE_EVERY):
-        loss, (ce_loss, commit_loss) = model(next(train_loader), return_loss_breakdown = True)
+        loss = model(next(train_loader))
         loss.backward(loss / GRADIENT_ACCUMULATE_EVERY)
 
-    print(f"training - ce loss: {ce_loss.item():.3f}\tcommit loss: {commit_loss.item():.3f}")
+    print(f"training loss: {loss.item():.3f}")
     torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
 
     optim.step()
@@ -99,9 +99,9 @@ for i in tqdm.tqdm(range(NUM_BATCHES), mininterval = 10.0, desc = "training"):
         model.eval()
         with torch.no_grad():
             valid_text = next(val_loader)
-            loss, recon, (ce_loss, _) = model(valid_text, return_reconstruction = True)
+            loss, recon = model(valid_text)
 
-            print(f"validation loss: {ce_loss.item():.3f}")
+            print(f"validation loss: {loss.item():.3f}")
 
             print(f"\n\n\n[input text]\n\n {decode_tokens(first(valid_text))}")
             print(f"\n\n[reconstructed text]\n\n {decode_tokens(first(recon))}\n\n")
