@@ -42,3 +42,12 @@ Update: <a href="https://api.wandb.ai/links/lucidrains/kpdfhad9">Some live exper
     volume  = {abs/2208.03641}
 }
 ```
+
+```bibtex
+@software{Phil_Wang_simple-hierarchical-transformer,
+    author  = {Phil Wang},
+    license = {MIT},
+    title   = {simple-hierarchical-transformer},
+    url     = {https://github.com/lucidrains/simple-hierarchical-transformer}
+}
+```
