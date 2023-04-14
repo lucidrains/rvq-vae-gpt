@@ -180,7 +180,7 @@ class TextVQVAE(nn.Module): # or genomics, eventually, with num_tokens set to 4
 
         assert num_layers == len(depth) == len(local_attn_window_size) == len(dim)
 
-        init_dim, *_, vq_dim = dim
+        init_dim, vq_dim = dim[0], dim[-1]
 
         dims = [first(dim), *dim]
         dim_pairs = tuple(zip(dims[:-1], dims[1:]))
