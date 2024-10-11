@@ -160,7 +160,8 @@ class TextVQVAE(nn.Module): # or genomics, eventually, with num_tokens set to 4
         local_attn_dim_head = 64,
         num_codebooks = 4,
         vq_decay = 0.9,
-        rvq_quantize_dropout = True
+        rvq_quantize_dropout = True,
+        rvq_use_rotation_trick = True,
     ):
         super().__init__()
 
@@ -234,10 +235,14 @@ class TextVQVAE(nn.Module): # or genomics, eventually, with num_tokens set to 4
             num_quantizers = num_codebooks,
             codebook_size = codebook_size,
             decay = vq_decay,
-            quantize_dropout = num_codebooks > 1 and rvq_quantize_dropout,
-            commitment_weight = 0.,   # the weight on the commitment loss
+            quantize_dropout = True,
+            commitment_weight = 1.,   # the weight on the commitment loss
             kmeans_init = True,
-            kmeans_iters = 10
+            kmeans_iters = 10,
+            sample_codebook_temp = 0.1,
+            rotation_trick = rvq_use_rotation_trick,        # Fifty et al.
+            straight_through = not rvq_use_rotation_trick,
+            ema_update = True
         )
 
         self.decoder = nn.ModuleList([])

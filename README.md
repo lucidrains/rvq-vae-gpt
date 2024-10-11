@@ -42,3 +42,12 @@ Update: <a href="https://api.wandb.ai/links/lucidrains/kpdfhad9">Some live exper
     volume  = {abs/2208.03641}
 }
 ```
+
+```bibtex
+@inproceedings{Fifty2024RestructuringVQ,
+    title   = {Restructuring Vector Quantization with the Rotation Trick},
+    author  = {Christopher Fifty and Ronald G. Junkins and Dennis Duan and Aniketh Iger and Jerry W. Liu and Ehsan Amid and Sebastian Thrun and Christopher R'e},
+    year    = {2024},
+    url     = {https://api.semanticscholar.org/CorpusID:273229218}
+}
+```
